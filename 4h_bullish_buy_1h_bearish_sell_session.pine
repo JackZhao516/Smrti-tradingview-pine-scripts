@@ -1,0 +1,68 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © smrti
+
+//@version=5
+//initial capital 10000USDT
+strategy("4h_bullish_buy_1h_bearish_sell_session", overlay=true, calc_on_every_tick=true,
+ default_qty_type=strategy.percent_of_equity, default_qty_value = 100,
+ initial_capital = 10000, currency = currency.USDT, process_orders_on_close=true,
+ use_bar_magnifier = true, precision=7)
+
+// timewindow
+start = timestamp(2021, 10, 28, 00, 00)            // backtest start  window
+end = timestamp(2022, 8, 29, 00, 00)              // backtest end  window
+window = time >= start and time <= end
+
+// indicators
+
+ma90 = ta.sma(close, 90)
+ma90_4h = request.security(syminfo.tickerid, '240', ma90)
+ma90_1h = request.security(syminfo.tickerid, '60', ma90)
+vwap = ta.vwap(hlc3, timeframe.change('1D')) // session vwap
+
+plot(ma90_4h, color=color.new(color.green, 20))
+plot(vwap, color=color.new(color.blue, 20))
+plot(ma90_1h, color=color.new(color.yellow, 20))
+
+// conditional indicators
+bull_4h = ta.crossover(vwap, ma90_4h)
+bear_4h = ta.crossunder(vwap, ma90_4h)
+bull_1h = ta.crossover(vwap, ma90_1h)
+bear_1h = ta.crossunder(vwap, ma90_1h)
+
+// func close_all()
+close_all() =>
+    if strategy.position_size > 0
+        strategy.close("long", qty_percent = 100)
+    if strategy.position_size < 0
+        strategy.close("short", qty_percent = 100)
+
+// func long()
+long() =>
+    close_all()
+    strategy.entry("long", strategy.long)
+
+// func short()
+short() =>
+    close_all()
+    strategy.entry("short",  strategy.short)
+
+// in 4h bull zone
+if vwap >= ma90_4h and bull_1h and window
+    long()
+if vwap >= ma90_4h and bear_1h
+    close_all()
+
+// in 4h bear zone
+if vwap <= ma90_4h and bear_1h and window
+    short()
+if vwap <= ma90_4h and bull_1h
+    close_all()
+
+// 4h bull
+if bull_4h and window
+    long()
+
+// 4h bear
+if bear_4h and window
+    short()
