@@ -1,0 +1,70 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © smrti
+
+//@version=5
+//initial capital 10000USDT
+strategy("1d_bullish_buy_4h_bearish_sell_session_ema", overlay=true, calc_on_every_tick=true,
+ default_qty_type=strategy.percent_of_equity, default_qty_value = 100,
+ initial_capital = 10000, currency = currency.USDT, process_orders_on_close=true,
+ use_bar_magnifier = true, precision=7)
+
+// timewindow
+start = timestamp(2019, 1, 1, 00, 00)            // backtest start  window
+end = timestamp(2022, 9, 8, 00, 00)              // backtest end  window
+// start1 = timestamp(2020, 3, 11, 00, 00)            // backtest start  window
+// end1 = timestamp(2020, 3, 13, 00, 00)              // backtest end  window
+window = time >= start
+
+// indicators
+
+ma90 = ta.ema(close, 90)
+ma90_1d = request.security(syminfo.tickerid, '1D', ma90)
+ma90_4h = request.security(syminfo.tickerid, '240', ma90)
+vwap = ta.vwap(hlc3, timeframe.change('1D')) // session vwap
+
+plot(ma90_1d, color=color.new(color.green, 20))
+plot(vwap, color=color.new(color.blue, 20))
+plot(ma90_4h, color=color.new(color.yellow, 20))
+
+// conditional indicators
+bull_1d = ta.crossover(vwap, ma90_1d)
+bear_1d = ta.crossunder(vwap, ma90_1d)
+bull_4h = ta.crossover(vwap, ma90_4h)
+bear_4h = ta.crossunder(vwap, ma90_4h)
+
+// func close_all()
+close_all() =>
+    if strategy.position_size > 0
+        strategy.close("long", qty_percent = 100)
+    if strategy.position_size < 0
+        strategy.close("short", qty_percent = 100)
+
+// func long()
+long() =>
+    close_all()
+    strategy.entry("long", strategy.long)
+
+// func short()
+short() =>
+    close_all()
+    strategy.entry("short",  strategy.short)
+
+// in 1d bull zone
+if vwap >= ma90_1d and bull_4h and window
+    long()
+if vwap >= ma90_1d and bear_4h
+    close_all()
+
+// in 1d bear zone
+if vwap <= ma90_1d and bear_4h and window
+    short()
+if vwap <= ma90_1d and bull_4h
+    close_all()
+
+// 1d bull
+if bull_1d and window
+    long()
+
+// 1d bear
+if bear_1d and window
+    short()
