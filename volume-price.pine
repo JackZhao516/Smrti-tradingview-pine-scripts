@@ -1,0 +1,7 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © smrti
+
+//@version=5
+indicator("volume/abs(close/open-1)")
+
+plot(math.abs(volume/(close/open-1)), style=plot.style_columns)
