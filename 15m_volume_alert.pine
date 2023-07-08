@@ -1,0 +1,59 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © smrti
+
+//@version=5
+//initial capital 10000USDT
+strategy("15m_volume_alert", overlay=true, pyramiding = 100000,calc_on_every_tick=true,
+ default_qty_type=strategy.percent_of_equity, default_qty_value = 100,
+ initial_capital = 10000000000, currency = currency.USDT, process_orders_on_close=true,
+ use_bar_magnifier = true, precision=7)
+
+// timewindow
+start = timestamp(2020, 1, 1, 00, 00)            // backtest start  window
+end = timestamp(2023, 2, 9, 00, 00)              // backtest end  window
+// window = time >= start and end >= time
+window = time >= start
+
+// indicators
+
+volume_15m = request.security(ticker.standard(syminfo.tickerid), '15', volume)
+
+// plot(volume_15m, color=color.new(#af4c4c, 20), style=plot.style_columns)
+
+limit = 500000
+cap = close * volume_15m[0]
+// close_btc = request.security(ticker.standard("BTCUSDT"), '1', close)[0]
+// if str.endswith(syminfo.tickerid, "BTC")
+//     cap := cap * close_btc
+
+// indicators
+second_bar_condition = volume_15m[0] >= 50 * volume_15m[1] and cap >= limit
+third_bar_condition = volume_15m[0] >= 50 * volume_15m[2] and cap >= limit
+three_bar_condition = volume_15m[0] >= 10 * volume_15m[2] and volume_15m[0] >= 10 * volume_15m[2] and cap >= limit
+
+
+// in 4h bull zone
+if second_bar_condition and window
+    msg = str.format("2nd bar 50X: {0,number,integer}->{1,number,integer}, amount: ${2,number,integer}", volume_15m[1], volume_15m[0], cap)
+    strategy.entry(msg, strategy.long, 1)
+    // strategy.close_all(" ")
+
+if third_bar_condition and window
+    msg = str.format("3rd bar 50X: {0,number,integer}->{1,number,integer}->{2,number,integer}, amount: ${3,number,integer}", volume_15m[2], volume_15m[1],volume_15m[0], cap)
+    strategy.entry(msg, strategy.long, 1)
+    // strategy.close_all(" ")
+
+if three_bar_condition and window
+    msg = str.format("2nd, 3rd bar 10X: {0,number,integer}->{1,number,integer}->{2,number,integer}, amount: ${3,number,integer}", volume_15m[2], volume_15m[1],volume_15m[0], cap)
+    strategy.entry(msg, strategy.long, 1)
+    // strategy.close_all(" ")
+
+
+t = "volume_15m: " + str.format("{0,number,#.#}", volume_15m)
+
+tableColumn = 1
+tableRow = 1
+var table panel = table.new(position.top_right, tableColumn, tableRow)
+if barstate.islast
+    table.cell(panel, 0, 0, t, bgcolor=color.black, text_color=color.white)
+
