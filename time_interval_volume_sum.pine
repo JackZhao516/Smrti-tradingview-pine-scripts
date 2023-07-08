@@ -1,0 +1,15 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © smrti
+
+//@version=5
+indicator("Time Interval Volume Sum", overlay=true)
+
+start = input.time(timestamp("20 Feb 2023"), "Start")
+end = input.time(timestamp("31 Mar 2023"), "End")
+var volume_sum = 0.0
+date() => time >= start and time <= end
+    
+if date()
+    volume_sum += nz(volume)
+
+plot(volume_sum, display=display.status_line)
