@@ -1,0 +1,178 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Smrti Lab
+// Part of the code came from Fr3d0
+
+//@version=5
+indicator("Volume Profile Visible Range With Timely Segmented Coloring", "VPVR-Smrti-Color", overlay=true, max_boxes_count=500, max_bars_back = 5000)
+// label.new(bar_index, high, str.tostring(a))
+BORDER_COLOR = color.new(color.black, 80)
+LEFT_COLOR = color.new(color.green, 25)
+MID_COLOR = color.new(color.yellow, 25)
+RIGHT_COLOR = color.new(color.fuchsia, 25)
+
+MAX_BARS = 1000
+
+buyBarColor = input.color(LEFT_COLOR, "Buy Bar Color Left", group="Supported time frame spans from 1MIN to 1D")
+sellBarColor = input.color(LEFT_COLOR, "Sell Bar Color Left")
+buyBarColor1 = input.color(MID_COLOR, "Buy Bar Color Mid")
+sellBarColor1 = input.color(MID_COLOR, "Sell Bar Color Mid")
+buyBarColor2 = input.color(RIGHT_COLOR, "Buy Bar Color Right")
+sellBarColor2 = input.color(RIGHT_COLOR, "Sell Bar Color Right")
+numOfHistograms = input(80, 'Number of histograms (10-80)')
+widestHistogramWidth = input(5, 'Width of PoC (1-200)')
+
+curTimeframe = timeframe.period
+
+start = input.time(timestamp("20 Feb 2023"), "Start", group="(Start < Mid1 <= Mid2 < End)")
+segTime1 = input.time(timestamp("28 Feb 2023"), "Mid1")
+segTime2 = input.time(timestamp("20 Mar 2023"), "Mid2")
+end = input.time(timestamp("31 Mar 2023"), "End")
+
+histogramLowList = array.new_float(numOfHistograms, 0.0)
+histogramHighList = array.new_float(numOfHistograms, 0.0)
+
+histogramBuyVolumeList = array.new_float(numOfHistograms, 0.0)
+histogramSellVolumeList = array.new_float(numOfHistograms, 0.0)
+histogramBuyVolumeList1 = array.new_float(numOfHistograms, 0.0)
+histogramSellVolumeList1 = array.new_float(numOfHistograms, 0.0)
+histogramBuyVolumeList2 = array.new_float(numOfHistograms, 0.0)
+histogramSellVolumeList2 = array.new_float(numOfHistograms, 0.0)
+
+
+// deduce timeframe
+numOfBars = MAX_BARS
+int[] timeframeUnit = array.from(86400, 43200, 14400, 10800, 7200, 3600, 2700, 1800, 900, 300, 180, 60)
+int[] timeframeLength = array.from(35000, 20000, 14400, 13000, 10000, 6000, 5000, 4500, 3000, 1800, 1300, 800)
+string[] timeframeName = array.from("D", "720", "240", "180", "120", "60", "45", "30", "15", "5", "3", "1")
+
+startIndex = 0
+endIndex = 0
+segIndex1 = 0
+segIndex2 = 0
+timeLength = 0
+for i = 0 to array.size(timeframeUnit) - 1
+    if array.get(timeframeName, i) == curTimeframe
+        timeLength := array.get(timeframeLength, i)
+        timeUnit = (array.get(timeframeUnit, i) * 1000)
+        endIndex := int((timenow-end) / timeUnit)
+        segIndex1 := int((timenow-segTime1) / timeUnit)
+        segIndex2 := int((timenow-segTime2) / timeUnit)
+        startIndex := int((timenow-start) / timeUnit)
+        numOfBars := startIndex - endIndex + 1
+
+// Clean up drawings every tick
+var buyBars = array.new_box(numOfHistograms, na)
+for i=0 to numOfHistograms-1
+    box.delete(array.get(buyBars, i))
+var sellBars = array.new_box(numOfHistograms, na)
+for i=0 to numOfHistograms-1
+    box.delete(array.get(sellBars, i))
+
+var buyBars1 = array.new_box(numOfHistograms, na)
+for i=0 to numOfHistograms-1
+    box.delete(array.get(buyBars1, i))
+var sellBars1 = array.new_box(numOfHistograms, na)
+for i=0 to numOfHistograms-1
+    box.delete(array.get(sellBars1, i))
+
+var buyBars2 = array.new_box(numOfHistograms, na)
+for i=0 to numOfHistograms-1
+    box.delete(array.get(buyBars, i))
+var sellBars2 = array.new_box(numOfHistograms, na)
+for i=0 to numOfHistograms-1
+    box.delete(array.get(sellBars2, i))
+
+
+curHigh = request.security(syminfo.tickerid, curTimeframe, high)
+curLow = request.security(syminfo.tickerid, curTimeframe, low)
+curClose = request.security(syminfo.tickerid, curTimeframe, close)
+curVolume = request.security(syminfo.tickerid, curTimeframe, volume)
+curTime = request.security(syminfo.tickerid, curTimeframe, time)
+
+if barstate.islast
+    // calculate high/low range
+    rangeHigh = 0.0
+    rangeLow = 10000000000.0
+
+    for i = endIndex to startIndex
+        rangeHigh := math.max(rangeHigh, curHigh[i])
+        rangeLow := math.min(rangeLow, curLow[i])
+    rangeHeight = rangeHigh - rangeLow
+
+    histogramHeight = rangeHeight / numOfHistograms
+
+    // Define lows and highs of the histograms
+    for i = 0 to numOfHistograms - 1
+        histogramLow = rangeLow + histogramHeight * i
+        histogramHigh = rangeLow + histogramHeight * (i + 1)
+        array.set(histogramLowList, i, histogramLow)
+        array.set(histogramHighList, i, histogramHigh)
+
+    // Assign bar's volumes to histograms
+    for i = endIndex to startIndex
+        currentBarHeight = curHigh[i] - curLow[i]
+        currentBuyVolume = (curHigh[i] == curLow[i])? 0: curVolume[i] * (curClose[i] - curLow[i]) / currentBarHeight
+        currentSellVolume = (curHigh[i] == curLow[i])? 0: curVolume[i] * (curHigh[i] - curClose[i]) / currentBarHeight
+
+        // Define the percentages of the current volume to give to histograms
+        for j = 0 to numOfHistograms - 1
+            histogramLow = array.get(histogramLowList, j)
+            histogramHigh = array.get(histogramHighList, j)
+            target = math.max(histogramHigh, curHigh[i]) - math.min(histogramLow, curLow[i])
+                   - (math.max(histogramHigh, curHigh[i]) - math.min(histogramHigh, curHigh[i]))
+                   - (math.max(histogramLow, curLow[i]) - math.min(histogramLow, curLow[i]))
+            histogramVolumePercentage = target / currentBarHeight
+
+            // If there is at least one histogram affected
+            // then divide the current volume by the number of histograms affected
+            if histogramVolumePercentage > 0
+                if i > segIndex1
+                    array.set(histogramBuyVolumeList, j, array.get(histogramBuyVolumeList, j) + currentBuyVolume * histogramVolumePercentage)
+                    array.set(histogramSellVolumeList, j, array.get(histogramSellVolumeList, j) + currentSellVolume * histogramVolumePercentage)
+                else if i < segIndex2
+                    array.set(histogramBuyVolumeList2, j, array.get(histogramBuyVolumeList2, j) + currentBuyVolume * histogramVolumePercentage)
+                    array.set(histogramSellVolumeList2, j, array.get(histogramSellVolumeList2, j) + currentSellVolume * histogramVolumePercentage)
+                else
+                    array.set(histogramBuyVolumeList1, j, array.get(histogramBuyVolumeList1, j) + currentBuyVolume * histogramVolumePercentage)
+                    array.set(histogramSellVolumeList1, j, array.get(histogramSellVolumeList1, j) + currentSellVolume * histogramVolumePercentage)
+
+
+    // Find the histogram with the highest volume
+    highestHistogramVolume = 0.0
+    for i = 0 to numOfHistograms - 1
+        histogramVolume = array.get(histogramBuyVolumeList, i) + array.get(histogramSellVolumeList, i) + array.get(histogramBuyVolumeList1, i) + array.get(histogramSellVolumeList1, i) + array.get(histogramBuyVolumeList2, i) + array.get(histogramSellVolumeList2, i)
+        highestHistogramVolume := math.max(highestHistogramVolume, histogramVolume)
+
+
+    // Draw histograms and highlight the Point of Control
+    for i = 0 to numOfHistograms - 1
+        histogramLow = array.get(histogramLowList, i)
+        histogramHigh = array.get(histogramHighList, i)
+        histogramBuyVolume = array.get(histogramBuyVolumeList, i)
+        histogramSellVolume = array.get(histogramSellVolumeList, i)
+        histogramBuyVolume1 = array.get(histogramBuyVolumeList1, i)
+        histogramSellVolume1 = array.get(histogramSellVolumeList1, i)
+        histogramBuyVolume2 = array.get(histogramBuyVolumeList2, i)
+        histogramSellVolume2 = array.get(histogramSellVolumeList2, i)
+        histogramVolume = histogramBuyVolume + histogramSellVolume + histogramBuyVolume1 + histogramSellVolume1 + histogramBuyVolume2 + histogramSellVolume2
+        histogramWidth = widestHistogramWidth * histogramVolume * timeLength / highestHistogramVolume
+        histogramBuyWidth = math.ceil(histogramWidth * histogramBuyVolume * timeLength/ histogramVolume)
+        histogramSellWidth = math.ceil(histogramWidth * histogramSellVolume * timeLength/ histogramVolume)
+        histogramBuyWidth1 = math.ceil(histogramWidth * histogramBuyVolume1 * timeLength/ histogramVolume)
+        histogramSellWidth1 = math.ceil(histogramWidth * histogramSellVolume1 * timeLength/ histogramVolume)
+        histogramBuyWidth2 = math.ceil(histogramWidth * histogramBuyVolume2 * timeLength/ histogramVolume)
+        histogramSellWidth2 = math.ceil(histogramWidth * histogramSellVolume2 * timeLength/ histogramVolume)
+
+        // Draw buy and sell histograms
+        cur = chart.left_visible_bar_time
+        array.set(buyBars, i, box.new(left=cur, top=histogramHigh, right=cur + histogramBuyWidth, bottom=histogramLow, xloc=xloc.bar_time, bgcolor=buyBarColor, border_color=BORDER_COLOR))
+        cur += histogramBuyWidth
+        array.set(sellBars, i, box.new(left=cur, top=histogramHigh, right=cur + histogramSellWidth, bottom=histogramLow, xloc=xloc.bar_time, bgcolor=sellBarColor, border_color=BORDER_COLOR))
+        cur += histogramSellWidth
+        array.set(buyBars1, i, box.new(left=cur, top=histogramHigh, right=cur + histogramBuyWidth1, bottom=histogramLow, xloc=xloc.bar_time, bgcolor=buyBarColor1, border_color=BORDER_COLOR))
+        cur += histogramBuyWidth1
+        array.set(sellBars1, i, box.new(left=cur , top=histogramHigh, right=cur + histogramSellWidth1, bottom=histogramLow, xloc=xloc.bar_time, bgcolor=sellBarColor1, border_color=BORDER_COLOR))
+        cur += histogramSellWidth1
+        array.set(buyBars2, i, box.new(left=cur, top=histogramHigh, right=cur + histogramBuyWidth2, bottom=histogramLow, xloc=xloc.bar_time, bgcolor=buyBarColor2, border_color=BORDER_COLOR))
+        cur += histogramBuyWidth2
+        array.set(sellBars2, i, box.new(left=cur, top=histogramHigh, right=cur + histogramSellWidth2, bottom=histogramLow, xloc=xloc.bar_time, bgcolor=sellBarColor2, border_color=BORDER_COLOR))
