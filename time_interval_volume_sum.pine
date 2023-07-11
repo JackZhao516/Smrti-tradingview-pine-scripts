@@ -2,7 +2,7 @@
 // © smrti
 
 //@version=5
-indicator("Time Interval Volume Sum", overlay=true)
+indicator("Time Interval Volume Sum", overlay=true, format=format.volume)
 
 start = input.time(timestamp("20 Feb 2023"), "Start")
 end = input.time(timestamp("31 Mar 2023"), "End")
@@ -24,7 +24,7 @@ bgcolor(session_color)
 plot(volume_sum, display=display.status_line)
 
 if barstate.islast
-    volume_text = str.tostring(math.round(volume_sum, volume_decimal_place))
+    volume_text = str.tostring(math.round(volume_sum, volume_decimal_place), format.volume)
     var label1 = label.new(bar_index, low, volume_text, textcolor=text_color ,style=label.style_none)
     label.set_xloc(label1, (start + end)/2, xloc.bar_time)
     label.set_yloc(label1, yloc.abovebar)
