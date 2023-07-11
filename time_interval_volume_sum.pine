@@ -6,10 +6,26 @@ indicator("Time Interval Volume Sum", overlay=true)
 
 start = input.time(timestamp("20 Feb 2023"), "Start")
 end = input.time(timestamp("31 Mar 2023"), "End")
+interval_color = input.color(color.purple, "Interval Color")
+label_color = input.color(color.blue, "Label Color")
+volume_decimal_place = input.int(2, "Volume Decimal Place")
+bg_color = color.new(color.black, 100)
+
+
 var volume_sum = 0.0
 date() => time >= start and time <= end
-    
+
 if date()
     volume_sum += nz(volume)
 
+session_color = date() ? interval_color : bg_color
+
+bgcolor(session_color)
 plot(volume_sum, display=display.status_line)
+
+if barstate.islast
+    var label1 = label.new(bar_index, low, text=str.tostring(math.round(volume_sum, volume_decimal_place)))
+    label.set_xloc(label1, (start + end)/2, xloc.bar_time)
+    label.set_yloc(label1, yloc.abovebar)
+    label.set_color(label1, label_color)
+    label.set_size(label1, size.normal)
